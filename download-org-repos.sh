@@ -16,24 +16,33 @@ fi
 
 ( mkdir -p "$DEST_DIR" && cd "$DEST_DIR"
 
-repos=$(curl "$GITHUB_API/orgs/$ORG/repos" | jq -r '.[].clone_url')
+page=1
 
-printf "\nRepositories data recovered"
+while : ; do
+  repos=$(curl "$GITHUB_API/orgs/$ORG/repos?page=$page" | jq -r '.[].clone_url')
+  printf "\nRepositories data recovered. Page: $page"
 
-for repo in $repos; do
-  repo_name=$(basename "$repo" .git)
-  if [ -d "$repo_name" ]; then
-    printf "\nUpdating $repo_name"
-    cd "$repo_name"
-
-    git fetch origin master || git fetch origin main
-    git checkout master || git checkout main
-    git pull
-    cd ..
-  else
-    printf "\nCloning $repo_name"
-    git clone "$repo"
+  if [[ -z "$repos" ]]; then
+      break
   fi
+
+  for repo in $repos; do
+    repo_name=$(basename "$repo" .git)
+    if [ -d "$repo_name" ]; then
+      printf "\nUpdating $repo_name\n"
+      cd "$repo_name"
+
+      git fetch origin master || git fetch origin main
+      git checkout master || git checkout main
+      git pull
+      cd ..
+    else
+      printf "\nCloning $repo_name\n"
+      git clone "$repo"
+    fi
+  done
+
+  ((page++))
 done
 
 printf "\nProcess completed."
